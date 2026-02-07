@@ -1,0 +1,18 @@
+<div class="p-4 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 fixed bottom-0 left-0 right-0 z-40">
+  <div class="max-w-3xl mx-auto flex space-x-2">
+    <input
+      type="text"
+      [(ngModel)]="userMessage"
+      (keyup.enter)="sendMessage()"
+      placeholder="Ask LawGPT..."
+      class="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-200"
+    />
+    <button
+      (click)="sendMessage()"
+      [disabled]="userMessage().trim().length === 0"
+      class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:bg-blue-300 dark:disabled:bg-blue-800"
+    >
+      Send
+    </button>
+  </div>
+</div>

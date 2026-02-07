@@ -1,0 +1,29 @@
+<div class="flex flex-col p-4 space-y-4 overflow-y-auto h-full max-h-[calc(100vh-120px)] pb-20">
+  @for (message of filteredMessages; track message) {
+    <div class="flex" [class.justify-end]="message.role === 'user'">
+      <div
+        class="max-w-xl p-3 rounded-lg shadow-md"
+        [ngClass]="{
+          'bg-blue-500 text-white': message.role === 'user',
+          'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100': message.role === 'assistant'
+        }"
+      >
+        <p class="font-bold mb-1" *ngIf="message.role === 'user'">You</p>
+        <p class="font-bold mb-1" *ngIf="message.role === 'assistant'">LawGPT</p>
+        <p [innerHTML]="parseMarkdown(message.content)"></p>
+        <!-- Display validation status if available for assistant messages -->
+        <p *ngIf="message.validationStatus" class="text-xs italic mt-1"
+           [ngClass]="{
+             'text-green-100': message.validationStatus === 'verified',
+             'text-yellow-100': message.validationStatus === 'corrected'
+           }">
+           Status: {{ message.validationStatus }}
+        </p>
+      </div>
+    </div>
+  } @empty {
+    <div class="text-center text-gray-500 dark:text-gray-400 py-10">
+      <p class="text-lg">Start a conversation with LawGPT!</p>
+    </div>
+  }
+</div>
