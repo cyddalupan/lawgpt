@@ -9,6 +9,10 @@ import { CommonModule } from '@angular/common'; // Added CommonModule
 import { LoadingStream } from './loading-stream/loading-stream'; // Added LoadingStream
 import { ChatInput } from './chat-input/chat-input'; // Added ChatInput
 import { BehaviorSubject, of, Observable } from 'rxjs'; // Added Observable and of
+import { Router } from '@angular/router'; // Import Router
+import { RouterTestingModule } from '@angular/router/testing'; // Import RouterTestingModule
+import { MiniChatComponent } from './mini-chat/mini-chat'; // Import MiniChatComponent
+import { Location, APP_BASE_HREF } from '@angular/common'; // Import Location and APP_BASE_HREF
 
 // Mock ChatService
 class MockChatService {
@@ -63,7 +67,13 @@ describe('App', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [App], // Import the standalone component
+      imports: [
+        App, // Import the standalone component
+        RouterTestingModule.withRoutes([
+          { path: '', component: App },
+          { path: 'mini', component: MiniChatComponent }
+        ])
+      ], // Add RouterTestingModule with routes
       providers: [
         { provide: ChatService, useClass: MockChatService },
         { provide: DomSanitizer, useClass: MockDomSanitizer },
@@ -147,9 +157,65 @@ describe('App', () => {
     expect(chatHistory[1].isFinalHtml).toBe(true);
 
     // Assert DOM rendering (check the specific div in app.html)
-    const finalBriefDiv: HTMLElement = fixture.nativeElement.querySelector('.max-w-3xl.mx-auto.mt-8.p-4');
+    const finalBriefDiv: HTMLElement = fixture.nativeElement.querySelector('.final-output-container');
     expect(finalBriefDiv).toBeTruthy();
     expect(finalBriefDiv.innerHTML).toContain('Final Legal Brief'); // Check heading
     expect(finalBriefDiv.innerHTML).toContain(finalHtml); // Check content
+  });
+});
+
+describe('App Routing', () => {
+  let router: Router;
+  let fixture: ComponentFixture<App>;
+  let location: Location;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [
+        App,
+        RouterTestingModule.withRoutes([
+          { path: '', component: App },
+          { path: 'mini', component: MiniChatComponent }
+        ])
+      ],
+      providers: [
+        { provide: ChatService, useClass: MockChatService },
+        { provide: DomSanitizer, useClass: MockDomSanitizer },
+        { provide: APP_BASE_HREF, useValue: '/' }
+      ],
+    }).compileComponents();
+
+    // Override ChatHistory with the mock for routing tests as well
+    TestBed.overrideComponent(App, {
+      set: {
+        imports: [
+          LoadingStream,
+          ChatInput,
+          MockChatHistory
+        ]
+      }
+    });
+
+    fixture = TestBed.createComponent(App);
+    router = TestBed.inject(Router);
+    location = TestBed.inject(Location);
+
+    fixture.detectChanges(); // Initial detectChanges to trigger ngOnInit and router setup
+    await fixture.whenStable(); // Wait for router to stabilize
+  });
+
+  it('should navigate to "mini" and display MiniChatComponent', async () => {
+    await router.navigate(['/mini']);
+    fixture.detectChanges(); // Trigger change detection after navigation
+
+    // Wait for the navigation to complete and the component to be rendered
+    await fixture.whenStable();
+
+    // Check if the URL is '/mini'
+    expect(location.path()).toBe('/mini');
+
+    // Check if the MiniChatComponent is rendered in the DOM
+    const miniChatElement = fixture.nativeElement.querySelector('app-mini-chat');
+    expect(miniChatElement).toBeTruthy();
   });
 });

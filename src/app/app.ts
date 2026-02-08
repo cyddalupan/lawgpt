@@ -109,6 +109,12 @@ export class App implements OnInit, OnDestroy { // Added OnDestroy
         
         this.finalRenderedHtml.set(finalMessageContent);
                     if (finalMessageContent) {
+                      this.chatHistory.update(history => [...history, {
+                        role: 'assistant',
+                        content: finalMessageContent,
+                        displayInChat: true,
+                        isFinalHtml: true
+                      }]);
                       this.currentPhase.set('idle'); // Research is done
                       this.loading.set(false); // Stop loading
                       this.statusMessage.set('Research complete!'); // Final status message
