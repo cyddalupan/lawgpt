@@ -6,18 +6,13 @@ import { ChatInput } from '../chat-input/chat-input';
 import { ChatHistory } from '../chat-history/chat-history';
 import { ChatService } from '../chat.service';
 import { retry, catchError, timer, throwError, Subscription } from 'rxjs';
-import { PROMPT_CONTENT } from './prompts'; // Import the new prompts file
+import { ChatMessage } from '../shared/interfaces/chat-message.interface';
 
-// Define a ChatMessage interface for better type safety
-export interface ChatMessage {
-  role: 'user' | 'system' | 'assistant';
-  content: string;
-  needsValidation?: boolean;
-  validationStatus?: 'verified' | 'corrected';
-  isValidatorResponse?: boolean; // Added for debugging, might not be needed in final version
-  displayInChat?: boolean; // New property
-  isFinalHtml?: boolean; // Added for final HTML output
-}
+import PROMPT_CONTENT_RAW from './prompts.txt?raw';
+
+const PROMPT_CONTENT = JSON.parse(PROMPT_CONTENT_RAW);
+
+
 
 @Component({
   selector: 'app-main-chat-page',

@@ -1,7 +1,7 @@
 import { Component, Input, SecurityContext, ElementRef, ViewChild, AfterViewChecked } from '@angular/core'; // Import new modules
 import { CommonModule } from '@angular/common'; // Import CommonModule for ngFor
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser'; // Import DomSanitizer
-import { ChatMessage } from '../main-chat-page/main-chat-page'; // Import ChatMessage interface
+import { ChatMessage } from '../shared/interfaces/chat-message.interface'; // Import ChatMessage interface
 
 // Declare 'marked' as a global variable since it's loaded via CDN
 declare const marked: any;
