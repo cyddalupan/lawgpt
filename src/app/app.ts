@@ -241,9 +241,9 @@ export class App implements OnInit, OnDestroy { // Added OnDestroy
 > * **Prioritization:** Content integrity is paramount. Ensure the full legal brief content is returned.
 > * **Styling Guidance:**
 >   * Use standard Markdown or minimal, semantic HTML tags (e.g., \`<h2>\`, \`<p>\`, \`<ul>\`, \`<strong>\`, \`<em>\`) for content structure.
->   * **DO NOT apply complex Tailwind CSS classes for citations directly.**
+>   * **DO NOT apply any Tailwind CSS classes for styling within the brief. The application provides its own base styles for semantic HTML elements.**
 >   * **Citations:** Identify Philippine Citations using a clear, consistent, and easily parsable textual marker. Format them as: \`[[CITATION: G.R. No. 123456 | Petitioner v. Respondent | Date | Division/En Banc | Short Syllabus/Holding...]]\`
->   * **Emoji Icons:** For headings or key points, use relevant emojis and make them visually prominent. E.g., \`<h2>🏛️ Heading One</h2>\` or \`<p class="text-2xl">⚖️ Key Point</p>\`.
+>   * **Emoji Icons:** For headings or key points, use relevant emojis and make them visually prominent. E.g., \`<h2>🏛️ Heading One</h2>\`. (Remove the \`text-2xl\` Tailwind class example as it won't be used by the AI).
 > * **Strict Constraint (Regex Leak Prevention):** Strictly avoid generating any unmatched square brackets (\`[\` or \`]\`) within the content. Ensure the output is valid, well-formed HTML/Markdown.
 > * **Output Format:**
 > * Start with \`[status_message: "✨ Applying professional styling and formatting for the final review..."]\`
