@@ -6,7 +6,9 @@ console.log('--- vitest.config.ts is loaded ---'); // Diagnostic log
 
 export default defineConfig({
   plugins: [
-    angular(),
+    angular({
+      exclude: ['**/src/app/main-chat-page/prompts.ts'], // Exclude prompts.ts from Angular plugin processing
+    }),
   ],
   test: {
     globals: true,
