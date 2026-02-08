@@ -12,14 +12,17 @@ import { takeUntil } from 'rxjs/operators';
   styleUrl: './ai-test.css'
 })
 export class AiTestComponent implements OnDestroy {
-  aiResponse$: BehaviorSubject<string> = new BehaviorSubject<string>('No response yet.');
+  aiResponse$: BehaviorSubject<string>; // Declare, but initialize in constructor
   loading: boolean = false;
   error: string | null = null;
-  statusMessage$: BehaviorSubject<string | null> = new BehaviorSubject<string | null>(null);
+  statusMessage$: BehaviorSubject<string | null>; // Declare, but initialize in constructor
 
   private destroy$ = new Subject<void>();
 
-  constructor(private aiApiService: AiApiService) { }
+  constructor(private aiApiService: AiApiService) {
+    this.aiResponse$ = new BehaviorSubject<string>('No response yet.');
+    this.statusMessage$ = new BehaviorSubject<string | null>(null);
+  }
 
   ngOnDestroy(): void {
     this.destroy$.next();

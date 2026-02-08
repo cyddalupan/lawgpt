@@ -5,20 +5,50 @@
 
   <main class="flex-grow overflow-y-auto p-4 pb-24">
     <div class="max-w-3xl mx-auto">
-      <app-chat-history [messages]="chatHistory()"></app-chat-history>
+      @if (currentPhase() === 'research' && tasks().length > 0) {
+        <div class="mb-4 p-3 bg-blue-100 dark:bg-blue-900 rounded-lg shadow-md text-blue-800 dark:text-blue-200 text-center">
+          <p class="font-semibold mb-2">Research Progress: Task {{ currentTaskIndex() + 1 }} of {{ tasks().length }}</p>
+          <div class="w-full bg-blue-200 rounded-full h-2 dark:bg-blue-700">
+            <div class="bg-blue-600 h-2 rounded-full" [style.width]="(currentTaskIndex() + 1) / tasks().length * 100 + '%'"></div>
+          </div>
+        </div>
+      }
+
+      @if (!finalRenderedHtml()) {
+        <app-chat-history
+          [messages]="chatHistory()"
+          [inResearchMode]="researchMode()"
+        ></app-chat-history>
+      } @else {
+        <div class="final-output-container bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6 my-8">
+          <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">Final Legal Brief</h2>
+          <div [innerHTML]="getSafeHtml()"></div>
+        </div>
+      }
     </div>
-    
-    @if (finalRenderedHtml()) {
-      <div class="max-w-3xl mx-auto mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-md prose prose-slate dark:prose-invert">
-        <h2 class="text-xl font-bold mb-4">Final Legal Brief</h2>
-        <div [innerHTML]="getSafeHtml()"></div>
-      </div>
-    }
   </main>
 
   @if (loading()) {
-    <app-loading-stream [statusMessage]="statusMessage()"></app-loading-stream>
+    <app-loading-stream
+      [statusMessage]="statusMessage()"
+      [inResearchMode]="researchMode()"
+      [currentPhase]="currentPhase()"
+      [totalPhases]="totalPhases"
+      [tasks]="tasks()"
+      [currentTaskIndex]="currentTaskIndex()"
+      [researchSubPhase]="researchSubPhase()"
+    ></app-loading-stream>
   }
 
-  <app-chat-input (messageSent)="userMessage($event)"></app-chat-input>
-</div>
+  @if (!finalRenderedHtml()) {
+    <app-chat-input (messageSent)="userMessage($event)"></app-chat-input>
+  } @else {
+    <footer class="flex-shrink-0 p-4 bg-white dark:bg-gray-800 shadow-md flex justify-center items-center">
+      <button
+        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg text-lg transition duration-300 ease-in-out"
+        (click)="startNewResearch()"
+      >
+        Do another research
+      </button>
+    </footer>
+  }</div>

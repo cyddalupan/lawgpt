@@ -18,10 +18,13 @@ The system is designed to provide **verified, citation-backed legal briefs** by 
 
 * **Role:** The Brain & Orchestrator.
 * **Responsibilities:**
-* Manages the "State Machine" (Chat History vs. Work State).
-* Parses **Action Tags** (e.g., `[status_message: "..."]`) from the AI stream.
-* Executes the recursive "Research & Verify" loop.
-* Renders the final HTML/Tailwind response.
+* Manages the overall application state, including UI presentation during multi-step AI interactions.
+* **ChatService:** Acts as the central hub for AI communication, managing the `inResearchMode` state, buffering intermediate AI outputs, and orchestrating the retry mechanism for AI calls. It provides observables for UI components to react to status changes and the final HTML output.
+* **App Component:** Orchestrates the phase transitions of the "Legal Intelligence Loop," feeding user inputs and internal prompts to the `ChatService`.
+* **Action Tag Parsing:** Utilizes the `ChatService` to parse **Action Tags** (e.g., `[status_message: "..."]`) from the AI stream to control UI state and workflow.
+* **UI Orchestration during Research Mode:** Suppresses intermediate AI outputs from the main chat history, displaying a dynamic loading indicator (`LoadingStream` component) with real-time `status_message`, phase progression, and task progress.
+* **Final Rendering:** Receives and sanitizes the final HTML output from the AI, rendering it as the singular, polished result in the chat history.
+* **Error Handling:** Manages AI communication errors, including retries and user-facing error messages, ensuring a resilient user experience.
 
 
 

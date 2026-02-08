@@ -1,4 +1,4 @@
-import { Component, Input, SecurityContext } from '@angular/core'; // Import SecurityContext
+import { Component, Input, SecurityContext, ElementRef, ViewChild, AfterViewChecked } from '@angular/core'; // Import new modules
 import { CommonModule } from '@angular/common'; // Import CommonModule for ngFor
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser'; // Import DomSanitizer
 import { ChatMessage } from '../app'; // Import ChatMessage interface
@@ -13,23 +13,43 @@ declare const marked: any;
   templateUrl: './chat-history.html',
   // styleUrl: './chat-history.css', // Removed as per instructions
 })
-export class ChatHistory {
+export class ChatHistory implements AfterViewChecked { // Implement AfterViewChecked
   @Input() messages: ChatMessage[] = [];
+  @Input() inResearchMode: boolean = false; // NEW INPUT
+  @ViewChild('scrollContainer') private scrollContainer!: ElementRef; // Add ViewChild
 
-  constructor(private sanitizer: DomSanitizer) {}
+  constructor(public sanitizer: DomSanitizer) {}
 
   get filteredMessages(): ChatMessage[] {
+    const filtered = this.messages.filter(message => message.displayInChat !== false);
+    if (this.inResearchMode) {
+      return []; // Hide regular chat messages when in research mode
+    }
     // Filter messages: only show if displayInChat is true or undefined (default to true)
-    return this.messages.filter(message => message.displayInChat !== false);
+    return filtered;
   }
 
-  parseMarkdown(content: string): SafeHtml {
-    if (content.includes('[status_message:') || content.includes('[intake_status:') || content.includes('[tasks:') || content.includes('[summary_status:') || content.includes('[validation_status:') || content.includes('[synthesis_status:') || content.includes('[render_status:')) {
-      // If action tags are still present, do not parse as markdown, just sanitize
-      // This ensures action tags are not misinterpreted by markdown parser if they are not removed upstream
-      return this.sanitizer.bypassSecurityTrustHtml(content);
+  parseMarkdown(message: ChatMessage): SafeHtml { // Now takes ChatMessage
+    const content = message.content;
+    // For general chat messages, directly bypass security for the content.
+    // This is a security risk if markdown produces untrusted HTML.
+    return this.sanitizer.bypassSecurityTrustHtml(marked.parse(content) || '');
+  }
+
+  ngAfterViewChecked(): void {
+    this.scrollToBottom();
+  }
+
+  private scrollToBottom(): void {
+    if (this.scrollContainer && this.scrollContainer.nativeElement) {
+      try {
+        // Use setTimeout to ensure the scroll happens after the DOM has updated
+        setTimeout(() => {
+          this.scrollContainer.nativeElement.scrollTop = this.scrollContainer.nativeElement.scrollHeight;
+        }, 0);
+      } catch (err) {
+        console.error('Scroll to bottom failed:', err);
+      }
     }
-    // Convert markdown to HTML and sanitize
-    return this.sanitizer.bypassSecurityTrustHtml(this.sanitizer.sanitize(SecurityContext.HTML, marked.parse(content)) || '');
   }
 }

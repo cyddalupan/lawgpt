@@ -1,19 +1,38 @@
 import { defineConfig } from 'vitest/config';
-import { defaultExclude } from 'vitest/config'; // Import defaultExclude
-import angular from '@analogjs/vite-plugin-angular'; // Import the AnalogJS Angular plugin
+import { defaultExclude } from 'vitest/config';
+import angular from '@analogjs/vite-plugin-angular';
+
+console.log('--- vitest.config.ts is loaded ---'); // Diagnostic log
 
 export default defineConfig({
   plugins: [
-    angular(), // Add the Angular plugin here
+    angular(),
   ],
   test: {
-    globals: true, // Enable globals (describe, it, expect, etc.)
-    environment: 'jsdom', // Use JSDOM for a browser-like environment
-    setupFiles: ['src/test-setup.ts'], // Path to your Angular test setup file
-    exclude: [...defaultExclude, '**/node_modules/**', '**/dist/**', '**/.angular/**', '**/.*'], // Exclude common Angular/Node directories
+    globals: true,
+    environment: 'jsdom',
+
+    include: ['src/**/*.spec.ts'],
+    setupFiles: ['src/test-setup.ts'],
+
+    exclude: [...defaultExclude, '**/node_modules/**', '**/dist/**', '**/.angular/**', '**/.*'],
+    deps: {
+      inline: [
+        /@angular/,
+        /@analogjs/,
+        'zone.js',
+      ],
+    },
+    ssr: {
+      noExternal: [
+        /@angular/,
+        /@analogjs/,
+        'zone.js',
+      ],
+    },
     coverage: {
-      provider: 'v8', // or 'istanbul'
-      reporter: ['html', 'lcov'], // Example reporters
+      provider: 'v8',
+      reporter: ['html', 'lcov'],
     },
   },
 });

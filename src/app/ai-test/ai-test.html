@@ -4,7 +4,7 @@
     {{ loading ? 'Sending...' : 'Send Message to AI' }}
   </button>
 
-  <div *ngIf="loading" style="margin-top: 10px; color: #007bff; font-weight: bold;">
+  <div *ngIf="loading" class="status-message" style="margin-top: 10px; color: #007bff; font-weight: bold;">
     {{ (statusMessage$ | async) || 'Loading AI response...' }}
   </div>
   <div *ngIf="error" style="margin-top: 10px; color: #dc3545;">
@@ -12,6 +12,6 @@
   </div>
   <div *ngIf="!loading && !error" style="margin-top: 10px;">
     <strong>AI Response:</strong>
-    <p>{{ aiResponse$ | async }}</p>
+    <p class="ai-response">{{ aiResponse$ | async }}</p>
   </div>
 </div>
