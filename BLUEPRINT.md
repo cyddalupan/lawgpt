@@ -12,36 +12,93 @@ The system is designed to provide **verified, citation-backed legal briefs** by 
 
 ---
 
-## 2. System Architecture
+## 2. Application Modes: Professional vs. Fast
+
+LawGPT now operates in two distinct modes to cater to varying user needs:
+
+### A. Professional Mode (LawGPT)
+
+*   **Description:** This is the original, high-orchestration mode designed for comprehensive legal research. It follows the full "Legal Intelligence Loop" to provide verified, citation-backed legal briefs.
+*   **Focus:** Accuracy, deep research, and detailed output. This mode is powered by the main chat interface.
+
+### B. Fast Mode (Mini-Chat)
+
+*   **Description:** A streamlined, rapid response mode optimized for quick queries and general information. It bypasses much of the intensive multi-step research process, offering faster, though less comprehensively verified, answers.
+*   **Focus:** Speed, efficiency, and direct answers for less critical inquiries. This mode is powered by the mini-chat interface.
+
+---
+
+## 3. System Architecture (Professional Mode)
+
+
 
 ### A. The "Thick Frontend" (Angular)
 
-* **Role:** The Brain & Orchestrator.
-* **Responsibilities:**
-* Manages the overall application state, including UI presentation during multi-step AI interactions.
-* **ChatService:** Acts as the central hub for AI communication, managing the `inResearchMode` state, buffering intermediate AI outputs, and orchestrating the retry mechanism for AI calls. It provides observables for UI components to react to status changes and the final HTML output.
-* **App Component:** Orchestrates the phase transitions of the "Legal Intelligence Loop," feeding user inputs and internal prompts to the `ChatService`.
-* **Action Tag Parsing:** Utilizes the `ChatService` to parse **Action Tags** (e.g., `[status_message: "..."]`) from the AI stream to control UI state and workflow.
-* **UI Orchestration during Research Mode:** Suppresses intermediate AI outputs from the main chat history, displaying a dynamic loading indicator (`LoadingStream` component) with real-time `status_message`, phase progression, and task progress.
-* **Final Rendering:** Receives and sanitizes the final HTML output from the AI, rendering it as the singular, polished result in the chat history.
-* **Error Handling:** Manages AI communication errors, including retries and user-facing error messages, ensuring a resilient user experience.
+
+
+*   **Role:** The Brain & Orchestrator.
+
+*   **Responsibilities:**
+
+    *   Manages the overall application state, including UI presentation during multi-step AI interactions.
+
+    *   **ChatService:** Acts as the central hub for AI communication, managing the `inResearchMode` state, buffering intermediate AI outputs, and orchestrating the retry mechanism for AI calls. It provides observables for UI components to react to status changes and the final HTML output.
+
+    *   **App Component:** Orchestrates the phase transitions of the "Legal Intelligence Loop," feeding user inputs and internal prompts to the `ChatService`.
+
+    *   **Action Tag Parsing:** Utilizes the `ChatService` to parse **Action Tags** (e.g., `[status_message: "..."]`) from the AI stream to control UI state and workflow.
+
+    *   **UI Orchestration during Research Mode:** Suppresses intermediate AI outputs from the main chat history, displaying a dynamic loading indicator (`LoadingStream` component) with real-time `status_message`, phase progression, and task progress.
+
+    *   **Final Rendering:** Receives and sanitizes the final HTML output from the AI, rendering it as the singular, polished result in the chat history.
+
+    *   **Error Handling:** Manages AI communication errors, including retries and user-facing error messages, ensuring a resilient user experience.
 
 
 
 ### B. The "Thin Backend" (Generic Proxy)
 
-* **Role:** The Secure Relay.
-* **Responsibilities:**
-* Hides the OpenAI API Key.
-* Forwards the `messages[]` array to OpenAI.
-* Returns the raw stream/JSON to Angular.
-* *Note: Contains zero business logic.*
+
+
+*   **Role:** The Secure Relay.
+
+*   **Responsibilities:**
+
+    *   Hides the OpenAI API Key.
+
+    *   Forwards the `messages[]` array to OpenAI.
+
+    *   Returns the raw stream/JSON to Angular.
+
+    *   *Note: Contains zero business logic.*
+
+
+
+### C. Fast Mode Architecture (Mini-Chat)
+
+
+
+*   **Role:** Direct AI Interaction.
+
+*   **Responsibilities:**
+
+    *   **MiniChatService:** Handles direct, single-turn API requests to the AI.
+
+    *   **MiniChat Component:** Manages user input, sends requests via `MiniChatService`, and displays raw AI responses.
+
+    *   **Simplified Flow:** Bypasses the multi-phase "Legal Intelligence Loop" and extensive UI orchestration of the Professional Mode.
+
+    *   **Minimal UI Orchestration:** Primarily focuses on displaying the immediate AI response without intermediate status messages or complex state transitions.
+
+    *   **Error Handling:** Basic error display for immediate feedback.
 
 
 
 ---
 
-## 3. The "Legal Intelligence Loop" (The Core Logic)
+
+
+## 4. The "Legal Intelligence Loop" (The Core Logic - Professional Mode)
 
 The application follows a linear-then-recursive flow to ensure accuracy.
 
@@ -87,7 +144,7 @@ The application follows a linear-then-recursive flow to ensure accuracy.
 
 ---
 
-## 4. State Management: The Action Tag System
+## 5. State Management: The Action Tag System (Professional Mode)
 
 Instead of complex JSON schemas, LawGPT communicates its state using **Action Tags** embedded in the text stream. The Angular service uses Regex to parse these in real-time.
 
@@ -113,7 +170,7 @@ const tagRegex = /\[(\w+):\s*["']?(.*?)["']?\]/g;
 
 ---
 
-## 5. The "LawGPT" Persona Strategy
+## 6. The "LawGPT" Persona Strategy (Professional Mode)
 
 To ensure high-quality output, specific "Internal Personas" are assigned to each phase, though the AI always presents itself publicly as **LawGPT**.
 
@@ -133,7 +190,7 @@ To ensure high-quality output, specific "Internal Personas" are assigned to each
 
 ---
 
-## 6. Data Structures
+## 7. Data Structures (Professional Mode)
 
 ### The Task Array (Phase 2 Output)
 

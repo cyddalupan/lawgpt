@@ -34,6 +34,7 @@ Notes:
 ---
 
 **Asynchronous Data Handling in Frontend (Angular)**
+(Primarily for Professional Mode, general principles apply to Fast Mode)
 - **Best Practices for API Interaction:**
     - Utilize `HttpClient` for API requests (as in `AiApiService`).
     - Implement robust error handling with `catchError` and appropriate user feedback.
@@ -45,9 +46,9 @@ Notes:
     - Prefer `BehaviorSubject` or `Subject` to manage component-level asynchronous data streams.
     - Leverage the `AsyncPipe` (`| async`) in templates for automatic subscription, unsubscription, and change detection. This simplifies templates and enhances performance.
 
-### Lessons Learned: Robust State & Parsing for Dynamic UI
+### Lessons Learned: Robust State & Parsing for Dynamic UI (Primarily for Professional Mode)
 
-This section outlines critical insights and best practices derived from recent debugging efforts, particularly concerning the handling of asynchronous AI responses and dynamic UI updates in Angular.
+This section outlines critical insights and best practices derived from recent debugging efforts, particularly concerning the handling of asynchronous AI responses and dynamic UI updates in Angular for the **Professional Mode**. The Fast Mode employs a simpler interaction model, reducing the complexity of state management and parsing.
 
 - **Robust Action Tag Parsing (Handling Double-Escaped JSON):**
     - **Problem:** AI responses, especially from intermediary APIs, might return `ai_message` content where values within action tags (e.g., `[status_message: "..."]`) are themselves `JSON.stringify`'d. This results in double-escaped strings like `"\ud83e\udde0 Evaluating..."` becoming `\"\\ud83e\\udde0 Evaluating...\"` in the raw string.
@@ -62,7 +63,7 @@ This section outlines critical insights and best practices derived from recent d
         -   Subsequent dynamic AI `status_message` updates from `ChatService` will naturally flow through `app.ts` and overwrite this initial message.
     - **Impact:** Eliminates race conditions, ensures consistent display of initial messages, simplifies child components, and makes debugging state transitions much clearer.
 
-- **Expected API Response Formats:**
+- **Expected API Response Formats (Professional Mode):**
     - **Final AI Response:** Should contain `ai_message` for the primary content.
         ```json
         {
@@ -73,6 +74,13 @@ This section outlines critical insights and best practices derived from recent d
         ```json
         {
             "status_message": "🧠 Evaluating your request..."
+        }
+        ```
+- **Expected API Response Formats (Fast Mode):**
+    - **Direct AI Response:** Primarily expects `ai_message` for the direct answer.
+        ```json
+        {
+            "ai_message": "..."
         }
         ```
 
