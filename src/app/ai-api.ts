@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
+import { Observable, throwError } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 
 @Injectable({
@@ -25,27 +26,43 @@ export class AiApiService {
 
     const body = { messages: messages };
 
-    return this.http.post<any>(this.apiUrl, body, { headers });
+    return this.http.post<any>(this.apiUrl, body, { headers }).pipe(
+      catchError(this.handleError)
+    );
   }
 
-  // Example usage in an Angular component:
-  // constructor(private aiApiService: AiApiService) {}
-  //
-  // sendMessageToAi() {
-  //   const chatMessages = [
-  //     { role: 'system', content: 'You are a helpful assistant.' },
-  //     { role: 'user', content: 'Hello, how are you?' }
-  //   ];
-  //
-  //   this.aiApiService.getAiResponse(chatMessages).subscribe(
-  //     response => {
-  //       console.log('AI Response:', response);
-  //       // Process the response, e.g., display it in the UI
-  //     },
-  //     error => {
-  //       console.error('Error getting AI response:', error);
-  //       // Handle errors, e.g., show an error message to the user
-  //     }
-  //   );
-  // }
+  private handleError(error: HttpErrorResponse) {
+    let errorMessage = 'An unknown error occurred!';
+    if (error.error instanceof ErrorEvent) {
+      // Client-side errors
+      errorMessage = `Client Error: ${error.error.message}`;
+    } else {
+      // Server-side errors
+      errorMessage = `Server Error: ${error.status} - ${error.message}`;
+    }
+    console.error('AiApiService Error:', errorMessage);
+    return throwError(() => new Error(errorMessage));
+  }
+
+  /**
+   * Sends a single message to a specified AI endpoint for a chat response.
+   * This method is generic for single-turn interactions and allows specifying the API URL.
+   * @param message The user's message as a string.
+   * @param apiUrl The URL of the AI endpoint to send the message to.
+   * @returns An Observable with the AI's response as a string.
+   */
+  sendSimpleChat(message: string, apiUrl: string): Observable<string> {
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${this.authToken}`
+    });
+
+    const body = {
+      messages: [{ role: 'user', content: message }]
+    };
+
+    return this.http.post(apiUrl, body, { headers, responseType: 'text' }).pipe(
+      catchError(this.handleError)
+    );
+  }
 }

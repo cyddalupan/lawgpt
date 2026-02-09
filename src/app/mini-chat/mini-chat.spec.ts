@@ -4,6 +4,9 @@ import { signal } from '@angular/core';
 import { MiniChatService } from './mini-chat.service';
 import { of, timer } from 'rxjs'; // Import timer
 import { map } from 'rxjs/operators'; // Import map
+import { By } from '@angular/platform-browser'; // Import By
+import { RouterTestingModule } from '@angular/router/testing'; // Import RouterTestingModule
+import { Header } from '../shared/header'; // Import Header component
 
 describe('MiniChatComponent', () => {
   let component: MiniChatComponent;
@@ -17,7 +20,7 @@ describe('MiniChatComponent', () => {
     };
 
     await TestBed.configureTestingModule({
-      imports: [MiniChatComponent],
+      imports: [MiniChatComponent, RouterTestingModule, Header], // Add RouterTestingModule and Header
       providers: [
         { provide: MiniChatService, useValue: mockMiniChatService }
       ]
@@ -30,6 +33,19 @@ describe('MiniChatComponent', () => {
 
   it('should create the component', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('should render the HeaderComponent with correct inputs', () => {
+    const headerElement = fixture.debugElement.query(By.css('app-header'));
+    expect(headerElement).toBeTruthy();
+
+    const h1Element = fixture.nativeElement.querySelector('app-header h1');
+    expect(h1Element).toBeTruthy();
+    expect(h1Element.textContent).toContain('LawGPT Fast');
+
+    const headerContainer = fixture.nativeElement.querySelector('app-header header');
+    expect(headerContainer).toBeTruthy();
+    expect(headerContainer.classList).toContain('bg-blue-800');
   });
 
   it('should display user message and AI response after handleMessageSent', async () => {

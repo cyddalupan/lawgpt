@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ChatInput } from '../chat-input/chat-input';
 import { MiniChatService } from './mini-chat.service'; // Import MiniChatService
+import { Header } from '../shared/header'; // Import Header component
 
 interface MiniChatMessage {
   role: 'user' | 'assistant';
@@ -11,7 +12,7 @@ interface MiniChatMessage {
 @Component({
   selector: 'app-mini-chat',
   standalone: true,
-  imports: [CommonModule, ChatInput],
+  imports: [CommonModule, ChatInput, Header],
   templateUrl: './mini-chat.html',
   styleUrl: './mini-chat.css'
 })
@@ -25,7 +26,7 @@ export class MiniChatComponent {
     this.messages.update(msgs => [...msgs, { role: 'user', content: message }]);
     this.loading.set(true);
 
-    this.miniChatService.sendMessage(message, this.messages()).subscribe({
+    this.miniChatService.sendMessage(message).subscribe({
       next: (aiResponse) => {
         this.messages.update(msgs => [...msgs, { role: 'assistant', content: aiResponse }]);
         this.loading.set(false);

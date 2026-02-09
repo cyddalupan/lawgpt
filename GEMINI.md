@@ -1,6 +1,7 @@
 Notes:
 - Prefer small code change with explaination around 3 to 9 lines, but not limitted to just preference.
 - **Test Execution:** Always use non-interactive commands for running tests (e.g., `vitest run`). Never use interactive or watch modes during automated execution to prevent timeouts.
+- **Verification:** For application-level checks, prefer running a `build` command (e.g., `npm run build`) over `serve` to ensure compilation success without launching an interactive server. Only use `serve` when direct interaction with the running application in a browser is explicitly required for verification.
 
 ## Silent Test Execution
 - Use `vitest run --silent` (or other appropriate Vitest CLI options like `--reporter=default --silent`) to run tests silently and reduce verbose output. This is crucial for efficient CI/CD and to prevent excessive log generation.

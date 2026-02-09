@@ -32,7 +32,7 @@ export class ChatService {
   public aiError$ = this.aiErrorSubject.asObservable(); // NEW: Observable for AI errors
 
   // Regex to capture [key: "value"] pattern
-  public tagRegex = /\[(\w+):\s*(".*?"|'.*?'|\[.*?\]|\{.*?\}|[^\]]*)\]/g;
+  public tagRegex = /\[(\w+):\s*(".*?"|'.*?'|\[.*?\]|\{.*?\}|[^\]]*)\]/g; // Reverted to original robust regex
 
   constructor(private http: HttpClient) {}
 
@@ -148,55 +148,35 @@ export class ChatService {
     return cleanedContent;
   }
   // Existing parseActionTags method remains the same
-  parseActionTags(text: string): { [key: string]: string | string[] } {
-    const tags: { [key: string]: string | string[] } = {};
+  parseActionTags(text: string): { [key: string]: string | string[] | Record<string, any> } {
+    const tags: { [key: string]: string | string[] | Record<string, any> } = {};
     const matches = Array.from(text.matchAll(this.tagRegex));
 
     for (const match of matches) {
       const key = match[1];
-      let rawValue = match[2].trim();
-      let processedValue: string | string[] = rawValue;
+      let rawValue = match[2].trim(); // Raw value extracted by original regex.
 
-      if ((rawValue.startsWith('[') && rawValue.endsWith(']')) || (rawValue.startsWith('{') && rawValue.endsWith('}'))) {
-        try {
-          processedValue = JSON.parse(rawValue);
-        } catch (e) {
-          // console.warn(`Could not parse value for tag ${key} as JSON: ${rawValue}`, e); // Removed debug log
-        }
-      }
-      else if (
-        (rawValue.startsWith('"') && rawValue.endsWith('"')) || // Normal quotes
-        (rawValue.startsWith("'") && rawValue.endsWith("'")) || // Normal single quotes
-        (rawValue.startsWith('\\"') && rawValue.endsWith('\\"')) // Handle escaped double quotes from stringified JSON
-      ) {
-        try {
-          // Attempt to parse the rawValue.
-          // By wrapping rawValue in quotes, JSON.parse will unescape both
-          // the quotes themselves (e.g., \" becomes ") and any Unicode escapes (\uXXXX).
-          // Example: rawValue = '\"\\ud83e\\udde0 Evaluating...\"'
-          // Processed: JSON.parse(`"\"\\ud83e\\udde0 Evaluating...\""`) -> "🧠 Evaluating..." (actual string with literal quotes)
-          processedValue = JSON.parse(`"${rawValue}"`);
+      let processedValue: any = rawValue;
 
-          // After parsing, processedValue will be a string like "🧠 Evaluating..." (actual emoji, with literal quotes)
-          // We need to remove these literal quotes if they exist.
-          if (typeof processedValue === 'string' && processedValue.startsWith('"') && processedValue.endsWith('"')) {
-              processedValue = processedValue.substring(1, processedValue.length - 1);
-          }
-        } catch (e) {
-          // If JSON.parse fails, it's not a valid JSON string literal for this context.
-          // Fallback: remove any kind of outer quotes (escaped or unescaped) and then
-          // perform explicit Unicode unescaping as a final safeguard.
-          if (rawValue.startsWith('\\"') && rawValue.endsWith('\\"')) {
-              processedValue = rawValue.substring(2, rawValue.length - 2);
-          } else if (rawValue.startsWith('"') && rawValue.endsWith('"')) {
-              processedValue = rawValue.substring(1, rawValue.length - 1);
-          }
-          if (typeof processedValue === 'string') {
-              processedValue = processedValue.replace(/\\u([\dA-F]{4})/gi,
-                (match, grp) => String.fromCharCode(parseInt(grp, 16)));
-          }
-        }
+      // Step 1: Attempt to parse as JSON (arrays, objects, or string literals)
+      try {
+        const parsedJson = JSON.parse(rawValue);
+        processedValue = parsedJson;
+      } catch (e) {
+        // Not a valid JSON string, proceed to string cleanup.
       }
+
+      // Step 2: Final cleanup for plain strings (single quotes, Unicode escapes)
+      if (typeof processedValue === 'string') {
+        // Remove outer single quotes (if JSON.parse didn't handle it or it wasn't JSON)
+        if (processedValue.startsWith("'") && processedValue.endsWith("'")) {
+          processedValue = processedValue.substring(1, processedValue.length - 1);
+        }
+        // Resolve Unicode escapes
+        processedValue = processedValue.replace(/\\u([\dA-F]{4})/gi,
+          (match: string, grp: string) => String.fromCharCode(parseInt(grp, 16)));
+      }
+
       tags[key] = processedValue;
     }
     return tags;

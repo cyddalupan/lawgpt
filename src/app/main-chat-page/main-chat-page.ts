@@ -7,17 +7,16 @@ import { ChatHistory } from '../chat-history/chat-history';
 import { ChatService } from '../chat.service';
 import { retry, catchError, timer, throwError, Subscription } from 'rxjs';
 import { ChatMessage } from '../shared/interfaces/chat-message.interface';
+import { Header } from '../shared/header'; // Import Header component
 
-import PROMPT_CONTENT_RAW from './prompts.txt?raw';
-
-const PROMPT_CONTENT = JSON.parse(PROMPT_CONTENT_RAW);
+import PROMPT_CONTENT from './prompts.json';
 
 
 
 @Component({
   selector: 'app-main-chat-page',
   standalone: true,
-  imports: [CommonModule, LoadingStream, ChatInput, ChatHistory],
+  imports: [CommonModule, LoadingStream, ChatInput, ChatHistory, Header],
   templateUrl: './main-chat-page.html',
   styleUrl: './main-chat-page.css'
 })
@@ -151,13 +150,29 @@ export class MainChatPageComponent implements OnInit, OnDestroy {
   }
             private processQueue(): void {
                             this.loading.set(true);
+        // Set an initial status message immediately upon initiating a new queue process
+        if (this.currentPhase() !== 'idle' && this.statusMessage() === '') {
+          this.statusMessage.set('🚀 Initiating LawGPT research...');
+        }
         const messagesToSend: ChatMessage[] = [];
-        if (this.currentPhase() !== 'idle') {
-          messagesToSend.push({
-            role: 'system',
-            content: this.getPromptContent(this.currentPhase() as 'intake' | 'strategy' | 'summarizer' | 'research' | 'synthesis' | 'styling' | 'validator'),
-            displayInChat: false
-          });
+        let systemPromptContent: string = '';
+
+        if (this.currentPhase() === 'research') {
+          if (this.researchSubPhase() === 'sending_task_to_researcher') {
+            systemPromptContent = PROMPT_CONTENT.research; // Prompt 3
+          } else if (this.researchSubPhase() === 'sending_research_to_validator') {
+            systemPromptContent = PROMPT_CONTENT.validator; // Prompt 4
+          }
+        } else if (this.currentPhase() !== 'idle') {
+          systemPromptContent = this.getPromptContent(this.currentPhase() as 'intake' | 'strategy' | 'summarizer' | 'research' | 'synthesis' | 'styling' | 'validator');
+        }
+
+        if (systemPromptContent) { // Only push if there's actual content
+            messagesToSend.push({
+                role: 'system',
+                content: systemPromptContent,
+                displayInChat: false
+            });
         }
                 let conversationalHistory: ChatMessage[] = [];
                 conversationalHistory = this.chatHistory().map(msg => ({ role: msg.role, content: msg.content }));
@@ -208,9 +223,7 @@ export class MainChatPageComponent implements OnInit, OnDestroy {
                                                             if (tags['tasks']) {
                                                                 console.log('MainChatPageComponent: Strategy phase received tasks. Transitioning to summarizer.');
                                                                 let receivedTasks = tags['tasks'] as string[];
-                                                                if (receivedTasks.length > 2) {
-                                                                    receivedTasks = receivedTasks.slice(0, 2);
-                                                                }
+                                                                // Removed: if (receivedTasks.length > 2) { receivedTasks = receivedTasks.slice(0, 2); }
                                                                 this.tasks.set(receivedTasks);
                                                                 this.currentPhase.set('summarizer');
                                                                 this.userMessage('Summarize the research requirements based on the generated tasks.', false);
@@ -294,7 +307,7 @@ Status: ${f.validationStatus}`).join('\n\n')}
         this.userMessage(synthesisContent, false);
       }
     }
-  private async handleResearchStep(aiMessage: string, cleanedContent: string, tags: { [key: string]: string | string[] }): Promise<void> {
+  private async handleResearchStep(aiMessage: string, cleanedContent: string, tags: { [key: string]: string | string[] | Record<string, any> }): Promise<void> {
     const currentIndex = this.currentTaskIndex();
     const currentTask = this.tasks()[currentIndex];
     if (tags['action'] === 'web_search' && typeof tags['query'] === 'string' && this.researchSubPhase() === 'sending_task_to_researcher') {
