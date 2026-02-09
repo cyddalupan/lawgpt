@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, OnInit, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ChatInput } from '../chat-input/chat-input';
 import { MiniChatService } from './mini-chat.service'; // Import MiniChatService
@@ -16,11 +16,33 @@ interface MiniChatMessage {
   templateUrl: './mini-chat.html',
   styleUrl: './mini-chat.css'
 })
-export class MiniChatComponent {
+export class MiniChatComponent implements OnInit, AfterViewChecked {
+  @ViewChild('scrollMe') private myScrollContainer!: ElementRef;
+
   messages = signal<MiniChatMessage[]>([]);
   loading = signal(false);
 
   constructor(private miniChatService: MiniChatService) {} // Inject MiniChatService
+
+  ngOnInit(): void {
+    this.messages.update(msgs => [...msgs, {
+      role: 'assistant',
+      content: 'Hello! I am LawGPT Fast. How can I assist you today?',
+    }]);
+  }
+
+  ngAfterViewChecked(): void {
+    this.scrollToBottom();
+  }
+
+  scrollToBottom(): void {
+    try {
+      // Use setTimeout to ensure the DOM has updated before scrolling
+      setTimeout(() => {
+        this.myScrollContainer.nativeElement.scrollTop = this.myScrollContainer.nativeElement.scrollHeight;
+      }, 0);
+    } catch (err) { }
+  }
 
   handleMessageSent(message: string) {
     this.messages.update(msgs => [...msgs, { role: 'user', content: message }]);
