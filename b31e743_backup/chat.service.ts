@@ -32,7 +32,7 @@ export class ChatService {
   public aiError$ = this.aiErrorSubject.asObservable(); // NEW: Observable for AI errors
 
   // Regex to capture [key: "value"] pattern
-  public tagRegex = /\[(\w+):\s*(".*?"|'.*?'|\[.*?\]|\{.*?\}|[^\]]*)\]/g; // Reverted to original robust regex
+  public tagRegex = /\[(\w+):\s*(".*?"|'.*?'|\[.*?\]|\{.*?\}|[^\]]*)\]/g;
 
   constructor(private http: HttpClient) {}
 
@@ -103,14 +103,9 @@ export class ChatService {
 
     // Handle render_status
     if (tags['render_status'] === 'final') {
-      // Precisely remove the status_message from the Styling prompt and the render_status tag itself
-      // The Styling prompt starts with "[status_message: \"✨ Applying professional styling and formatting for the final review...\"]"
-      // and ends with "[render_status: \"final\"]". We need to remove these specific tags.
-      let contentToExtract = aiMessageContent
-                              .replace(/\[status_message:\s*\"✨ Applying professional styling and formatting for the final review...\"\]/, '')
-                              .replace(/\[render_status:\s*\"final\"\]/, '')
-                              .trim();
-      this.finalHtmlOutputSubject.next(this.extractHtmlContent(contentToExtract)); // Pass the cleaned content
+      // Clean aiMessageContent to remove status/render tags before extracting HTML
+      let cleanHtmlContent = this.removeActionTags(aiMessageContent);
+      this.finalHtmlOutputSubject.next(this.extractHtmlContent(cleanHtmlContent)); // Pass the cleaned content
       this.inResearchModeSubject.next(false);
       this.bufferedHtmlOutput = ''; // Clear buffer after final output is taken
       this.currentStatusMessageSubject.next(''); // Clear status message
@@ -139,46 +134,69 @@ export class ChatService {
 
   // Helper to extract the pure HTML content from a raw AI response
   // This is specifically for Prompt 6 output which should *only* be the <div>...</div> or <section>...</section>
-  private extractHtmlContent(htmlContentWithoutActionTags: string): string {
-    // The content should already be free of framing action tags at this point.
-    // Attempt to find the main HTML block (e.g., <section> or <div... and captures everything until its closing tag.
-    const htmlMatch = htmlContentWithoutActionTags.match(/(<section[\s\S]*<\/section>|<div[\s\S]*<\/div>)/);
+  private extractHtmlContent(rawAiMessageContent: string): string {
+    // First, remove all action tags from the raw AI message content
+    let cleanedContent = this.removeActionTags(rawAiMessageContent);
+
+    // Then, attempt to find the main HTML block (e.g., <section> or <div>)
+    // This regex looks for either <section> or <div... and captures everything until its closing tag.
+    const htmlMatch = cleanedContent.match(/(<section[\s\S]*<\/section>|<div[\s\S]*<\/div>)/);
     if (htmlMatch && htmlMatch[0]) {
       return htmlMatch[0];
     }
-    // Fallback: If no specific HTML block is found, return the content as is.
-    return htmlContentWithoutActionTags;
+    // Fallback: If no specific HTML block is found, return the cleaned content as is.
+    return cleanedContent;
   }
   // Existing parseActionTags method remains the same
-  parseActionTags(text: string): { [key: string]: string | string[] | Record<string, any> } {
-    const tags: { [key: string]: string | string[] | Record<string, any> } = {};
+  parseActionTags(text: string): { [key: string]: string | string[] } {
+    const tags: { [key: string]: string | string[] } = {};
     const matches = Array.from(text.matchAll(this.tagRegex));
 
     for (const match of matches) {
       const key = match[1];
-      let rawValue = match[2].trim(); // Raw value extracted by original regex.
+      let rawValue = match[2].trim();
+      let processedValue: string | string[] = rawValue;
 
-      let processedValue: any = rawValue;
-
-      // Step 1: Attempt to parse as JSON (arrays, objects, or string literals)
-      try {
-        const parsedJson = JSON.parse(rawValue);
-        processedValue = parsedJson;
-      } catch (e) {
-        // Not a valid JSON string, proceed to string cleanup.
-      }
-
-      // Step 2: Final cleanup for plain strings (single quotes, Unicode escapes)
-      if (typeof processedValue === 'string') {
-        // Remove outer single quotes (if JSON.parse didn't handle it or it wasn't JSON)
-        if (processedValue.startsWith("'") && processedValue.endsWith("'")) {
-          processedValue = processedValue.substring(1, processedValue.length - 1);
+      if ((rawValue.startsWith('[') && rawValue.endsWith(']')) || (rawValue.startsWith('{') && rawValue.endsWith('}'))) {
+        try {
+          processedValue = JSON.parse(rawValue);
+        } catch (e) {
+          // console.warn(`Could not parse value for tag ${key} as JSON: ${rawValue}`, e); // Removed debug log
         }
-        // Resolve Unicode escapes
-        processedValue = processedValue.replace(/\\u([\dA-F]{4})/gi,
-          (match: string, grp: string) => String.fromCharCode(parseInt(grp, 16)));
       }
+      else if (
+        (rawValue.startsWith('"') && rawValue.endsWith('"')) || // Normal quotes
+        (rawValue.startsWith("'") && rawValue.endsWith("'")) || // Normal single quotes
+        (rawValue.startsWith('\\"') && rawValue.endsWith('\\"')) // Handle escaped double quotes from stringified JSON
+      ) {
+        try {
+          // Attempt to parse the rawValue.
+          // By wrapping rawValue in quotes, JSON.parse will unescape both
+          // the quotes themselves (e.g., \" becomes ") and any Unicode escapes (\uXXXX).
+          // Example: rawValue = '\"\\ud83e\\udde0 Evaluating...\"'
+          // Processed: JSON.parse(`"\"\\ud83e\\udde0 Evaluating...\""`) -> "🧠 Evaluating..." (actual string with literal quotes)
+          processedValue = JSON.parse(`"${rawValue}"`);
 
+          // After parsing, processedValue will be a string like "🧠 Evaluating..." (actual emoji, with literal quotes)
+          // We need to remove these literal quotes if they exist.
+          if (typeof processedValue === 'string' && processedValue.startsWith('"') && processedValue.endsWith('"')) {
+              processedValue = processedValue.substring(1, processedValue.length - 1);
+          }
+        } catch (e) {
+          // If JSON.parse fails, it's not a valid JSON string literal for this context.
+          // Fallback: remove any kind of outer quotes (escaped or unescaped) and then
+          // perform explicit Unicode unescaping as a final safeguard.
+          if (rawValue.startsWith('\\"') && rawValue.endsWith('\\"')) {
+              processedValue = rawValue.substring(2, rawValue.length - 2);
+          } else if (rawValue.startsWith('"') && rawValue.endsWith('"')) {
+              processedValue = rawValue.substring(1, rawValue.length - 1);
+          }
+          if (typeof processedValue === 'string') {
+              processedValue = processedValue.replace(/\\u([\dA-F]{4})/gi,
+                (match, grp) => String.fromCharCode(parseInt(grp, 16)));
+          }
+        }
+      }
       tags[key] = processedValue;
     }
     return tags;

@@ -1,6 +1,9 @@
 <div class="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-50">
-  <app-header appName="LawGPT Professional" headerBgClass="bg-gray-800"></app-header>
-  <main class="flex-grow overflow-y-auto p-4 pb-24 min-h-0">
+  <header class="flex-shrink-0 p-4 bg-white dark:bg-gray-800 shadow-md">
+    <h1 class="text-xl font-bold text-center">LawGPT</h1>
+  </header>
+
+  <main class="flex-grow overflow-y-auto p-4 pb-24">
     <div class="max-w-3xl mx-auto">
       @if (currentPhase() === 'research' && tasks().length > 0) {
         <div class="mb-4 p-3 bg-blue-100 dark:bg-blue-900 rounded-lg shadow-md text-blue-800 dark:text-blue-200 text-center">
@@ -17,8 +20,7 @@
           [inResearchMode]="researchMode()"
         ></app-chat-history>
       } @else {
-        <div class="final-output-container prose dark:prose-invert bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6 my-8">
-          <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">Final Legal Brief</h2>
+        <div class="final-output-container prose dark:prose-invert bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6 my-8">          <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">Final Legal Brief</h2>
           <div [innerHTML]="getSafeHtml()"></div>
         </div>
       }
@@ -48,5 +50,4 @@
         Do another research
       </button>
     </footer>
-  }
-</div>
+  }</div>

@@ -41,13 +41,15 @@ export class MainChatPageComponent implements OnInit, OnDestroy {
   constructor(private chatService: ChatService, private sanitizer: DomSanitizer) {}
 
   getSafeHtml(): SafeHtml {
-    // Calling processCitations here, so the method needs to be present
-    return this.sanitizer.bypassSecurityTrustHtml(this.processCitations(this.finalRenderedHtml() || ''));
+    // Apply final cleanup to remove any remaining action tags before displaying the HTML.
+    // This handles any accidental action tags the AI might generate within the HTML content itself.
+    const processedHtml = this.chatService.removeActionTags(this.processCitations(this.finalRenderedHtml() || ''));
+    return this.sanitizer.bypassSecurityTrustHtml(processedHtml);
   }
 
   // New method to process citations and replace markers with styled HTML
   private processCitations(content: string): string {
-    const citationRegex = /\\\\[\\\\[CITATION:\s*(.+?)\\\\|\\\s*(.+?)\\\\|\\\s*(.+?)\\\\|\\\s*(.+?)\\\\|\\\s*(.+?)\\\\]\\\\]/g;
+    const citationRegex = /\[\[CITATION:\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\]\]/g;
     return content.replace(citationRegex, (match, grNo, petitioner, date, division, syllabus) => {
                 const processedGrNo = grNo;
                 const processedPetitioner = petitioner;
@@ -223,7 +225,9 @@ export class MainChatPageComponent implements OnInit, OnDestroy {
                                                             if (tags['tasks']) {
                                                                 console.log('MainChatPageComponent: Strategy phase received tasks. Transitioning to summarizer.');
                                                                 let receivedTasks = tags['tasks'] as string[];
-                                                                // Removed: if (receivedTasks.length > 2) { receivedTasks = receivedTasks.slice(0, 2); }
+                                                                if (receivedTasks.length > 2) {
+                                                                    receivedTasks = receivedTasks.slice(0, 2);
+                                                                }
                                                                 this.tasks.set(receivedTasks);
                                                                 this.currentPhase.set('summarizer');
                                                                 this.userMessage('Summarize the research requirements based on the generated tasks.', false);
@@ -295,14 +299,17 @@ export class MainChatPageComponent implements OnInit, OnDestroy {
         }
       } else {
         this.currentPhase.set('synthesis');
-        const synthesisContent = `
-Here is the full research requirements summary:
-${this.researchSummary()}
+        // Construct a cleaner input for the synthesis prompt.
+        // Provide the high-level goal and only the clean, validated results.
+        const cleanFragments = this.validatedResearchFragments()
+                                   .map(f => `--- Validated Data Fragment ---\n${this.chatService.removeActionTags(f.result)}`)
+                                   .join('\n\n');
 
-Here are the validated research fragments:
-${this.validatedResearchFragments().map(f => `Task: ${f.task}
-Result: ${f.result}
-Status: ${f.validationStatus}`).join('\n\n')}
+        const synthesisContent = `
+Research Goal: ${this.researchSummary()}
+
+Validated Data Fragments:
+${cleanFragments}
 `;
         this.userMessage(synthesisContent, false);
       }
