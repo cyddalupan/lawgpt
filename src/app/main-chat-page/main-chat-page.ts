@@ -34,6 +34,9 @@ export class MainChatPageComponent implements OnInit, OnDestroy {
   finalRenderedHtml = signal<string | null>(null);
 
   researchMode = signal<boolean>(false);
+  currentResearchTaskContent = signal<string>(''); // NEW: Signal to hold the current research task content
+  contentToValidate = signal<string>(''); // NEW: Signal to hold content to be validated
+  synthesizedBriefContent = signal<string>(''); // NEW: Signal to hold the synthesized brief content
   readonly totalPhases = 6;
 
   private subscriptions = new Subscription();
@@ -161,13 +164,19 @@ export class MainChatPageComponent implements OnInit, OnDestroy {
 
         if (this.currentPhase() === 'research') {
           if (this.researchSubPhase() === 'sending_task_to_researcher') {
-            systemPromptContent = PROMPT_CONTENT.research; // Prompt 3
+            systemPromptContent = PROMPT_CONTENT.research + '\n\nResearch Task: ' + this.currentResearchTaskContent(); // Append the current task
           } else if (this.researchSubPhase() === 'sending_research_to_validator') {
-            systemPromptContent = PROMPT_CONTENT.validator; // Prompt 4
+            systemPromptContent = PROMPT_CONTENT.validator + '\n\nContent to Validate: ' + this.contentToValidate(); // Append content for validator
           }
         } else if (this.currentPhase() !== 'idle') {
           systemPromptContent = this.getPromptContent(this.currentPhase() as 'intake' | 'strategy' | 'summarizer' | 'research' | 'synthesis' | 'styling' | 'validator');
         }
+
+        // --- NEW: Modify systemPromptContent for styling phase ---
+        if (this.currentPhase() === 'styling' && systemPromptContent) {
+            systemPromptContent = systemPromptContent + '\n\nSynthesized Legal Brief to Style:\n' + this.synthesizedBriefContent();
+        }
+        // --- END NEW ---
 
         if (systemPromptContent) { // Only push if there's actual content
             messagesToSend.push({
@@ -176,21 +185,18 @@ export class MainChatPageComponent implements OnInit, OnDestroy {
                 displayInChat: false
             });
         }
-                let conversationalHistory: ChatMessage[] = [];
-                conversationalHistory = this.chatHistory().map(msg => ({ role: msg.role, content: msg.content }));
-                if (this.currentPhase() === 'research' && this.researchSubPhase() === 'sending_research_to_validator') {
-                    const researcherOutputMsg = this.chatHistory().findLast(
-                        (msg: ChatMessage) => msg.role === 'assistant' && msg.needsValidation && !msg.displayInChat
-                    );
-                    if (researcherOutputMsg) {
-                        conversationalHistory = conversationalHistory.filter(msg => msg.content !== researcherOutputMsg.content);
-                        conversationalHistory.push({ role: 'user', content: researcherOutputMsg.content });
-                    } else {
-                        this.loading.set(false);
-                        return;
-                    }
-                }
-                messagesToSend.push(...conversationalHistory);
+
+        // Special handling for the 'styling' phase to send only the system prompt and the synthesized brief
+        if (this.currentPhase() === 'styling') {
+            // No conversational history is added for the styling phase
+            // The synthesizedBriefContent is already part of the systemPromptContent
+            // So, we just send the system message
+        } else {
+            // For all other phases, include the full conversational history
+            let conversationalHistory: ChatMessage[] = [];
+            conversationalHistory = this.chatHistory().map(msg => ({ role: msg.role, content: msg.content }));
+            messagesToSend.push(...conversationalHistory);
+        }
                 this.chatService.sendMessage(messagesToSend).subscribe({
                                                                           next: (rawResponse) => {
                                                                             this.loading.set(false);
@@ -224,13 +230,30 @@ export class MainChatPageComponent implements OnInit, OnDestroy {
                                                             console.log('MainChatPageComponent: In strategy phase. Processing tags.');
                                                             if (tags['tasks']) {
                                                                 console.log('MainChatPageComponent: Strategy phase received tasks. Transitioning to summarizer.');
-                                                                let receivedTasks = tags['tasks'] as string[];
+                                                                // Ensure receivedTasks is an array before attempting to filter
+                                                                let receivedTasks: string[] = Array.isArray(tags['tasks']) ? tags['tasks'] as string[] : [];
+                                                                // Filter out any malformed tasks like "[" or incomplete JSON fragments
+                                                                receivedTasks = receivedTasks.filter(task => {
+                                                                    if (typeof task !== 'string' || task.trim() === '[' || task.trim() === '') {
+                                                                        return false; // Filter out non-strings, empty, or just "["
+                                                                    }
+                                                                    // For now, simple check for "[" should catch the reported bug.
+                                                                    return true;
+                                                                });
+                                
                                                                 if (receivedTasks.length > 2) {
                                                                     receivedTasks = receivedTasks.slice(0, 2);
                                                                 }
-                                                                this.tasks.set(receivedTasks);
-                                                                this.currentPhase.set('summarizer');
-                                                                this.userMessage('Summarize the research requirements based on the generated tasks.', false);
+                                                                
+                                                                // Ensure we have at least one valid task before setting
+                                                                if (receivedTasks.length > 0) {
+                                                                    this.tasks.set(receivedTasks);
+                                                                    this.currentPhase.set('summarizer');
+                                                                    this.userMessage('Summarize the research requirements based on the generated tasks.', false);
+                                                                } else {
+                                                                    console.warn('MainChatPageComponent: No valid tasks received after filtering. Retrying strategy generation.');
+                                                                    this.processQueue(); // Retry strategy generation if no valid tasks
+                                                                }
                                                             } else {
                                                                 console.log('MainChatPageComponent: Strategy phase: No tasks received. Retrying strategy generation.');
                                                                 this.processQueue();
@@ -255,8 +278,10 @@ export class MainChatPageComponent implements OnInit, OnDestroy {
                                                           console.log('MainChatPageComponent: In synthesis phase. Processing tags.');
                                                           if (tags['synthesis_status'] === 'done') {
                                                             console.log('MainChatPageComponent: Synthesis phase done. Transitioning to Styling.');
+                                                            // Assume aiMessageContent at this point contains the synthesized brief
+                                                            this.synthesizedBriefContent.set(aiMessageContent); // Store the synthesized brief
                                                             this.currentPhase.set('styling');
-                                                            this.userMessage('Proceed to styling using the compiled legal brief.', false);
+                                                            this.processQueue(); // Call processQueue to send the system message for styling
                                                           } else {
                                                             console.log('MainChatPageComponent: Synthesis phase: Awaiting synthesis_status: "done". Retrying synthesis.');
                                                             this.processQueue();
@@ -289,10 +314,28 @@ export class MainChatPageComponent implements OnInit, OnDestroy {
           case 'idle':
           case 'awaiting_validation_response':
             this.statusMessage.set(`🔎 Researching task ${currentIndex + 1}/${tasks.length}: ${currentTask}...`);
-                      this.userMessage(currentTask, false);
-                      this.researchSubPhase.set('sending_task_to_researcher');            break;
+            if (currentTask && currentTask.trim() !== '[' && currentTask.trim() !== '') {
+              this.currentResearchTaskContent.set(currentTask); // Set the signal with the current task
+              this.researchSubPhase.set('sending_task_to_researcher');
+              this.processQueue(); // Call processQueue to send the system message with the task
+            } else {
+              console.warn(`Skipping malformed or empty task: "${currentTask}"`);
+              this.currentTaskIndex.update(index => index + 1);
+              this.researchSubPhase.set('idle');
+              this.processResearchTasks();
+            }
+            break;
           case 'awaiting_research_response':
             this.statusMessage.set(`⚖️ Validating research for task ${currentIndex + 1}/${tasks.length}...`);
+            const researcherOutputMsg = this.chatHistory().findLast(
+                (msg: ChatMessage) => msg.role === 'assistant' && msg.needsValidation && !msg.displayInChat
+            );
+            if (researcherOutputMsg) {
+                this.contentToValidate.set(researcherOutputMsg.content); // Store content for validator
+            } else {
+                console.warn('No researcher output found for validation. Proceeding without specific content.');
+                this.contentToValidate.set(''); // Ensure it's empty if no content found
+            }
             this.researchSubPhase.set('sending_research_to_validator');
             this.processQueue();
             break;
