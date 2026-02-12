@@ -13,6 +13,7 @@ describe('AiApiService', () => {
   let httpTestingController: HttpTestingController;
 
   beforeEach(() => {
+    TestBed.resetTestingModule(); // Explicitly reset the testing module
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [AiApiService]

@@ -1,0 +1,5 @@
+/* You can add component-specific styles here */
+.mini-chat-container {
+  /* Ensure it takes full height of its parent if needed */
+  min-height: 100%;
+}

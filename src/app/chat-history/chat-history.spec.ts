@@ -2,7 +2,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ChatHistory } from './chat-history';
 import { DomSanitizer, SafeHtml, SecurityContext } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
-import { ChatMessage } from '../app'; // Import ChatMessage interface
+import { ChatMessage } from '../shared/interfaces/chat-message.interface';
+import { Component } from '@angular/core'; // <--- ADDED THIS IMPORT
 
 // Mock the global 'marked' object for testing environment
 const mockMarked = {
@@ -17,22 +18,33 @@ const mockMarked = {
 };
 (window as any).marked = mockMarked; // Assign to global window scope for the test
 
+// Helper Test Host Component for binding innerHTML
+@Component({
+  template: `<div [innerHTML]="htmlContent"></div>`,
+  standalone: true,
+  imports: [CommonModule]
+})
+class TestHostComponent {
+  htmlContent: SafeHtml = '';
+}
+
+
 describe('ChatHistory', () => {
   let component: ChatHistory;
   let fixture: ComponentFixture<ChatHistory>;
-  let sanitizer: DomSanitizer; // Keep reference to the actual sanitizer
+  let sanitizer: DomSanitizer;
 
   beforeEach(async () => {
+    TestBed.resetTestingModule(); // Explicitly reset the testing module
     await TestBed.configureTestingModule({
       imports: [ChatHistory, CommonModule],
-      // Provide DomSanitizer if it's not automatically injected or mocked
-      // In this case, it should be automatically provided by @angular/platform-browser
+      // DomSanitizer is provided by platform-browser, no need to mock it unless specific behavior is needed
     }).compileComponents();
 
     fixture = TestBed.createComponent(ChatHistory);
     component = fixture.componentInstance;
-    sanitizer = TestBed.inject(DomSanitizer); // Inject the DomSanitizer
-    fixture.detectChanges(); // Initial change detection
+    sanitizer = TestBed.inject(DomSanitizer);
+    fixture.detectChanges();
   });
 
   it('should create', () => {
@@ -41,61 +53,86 @@ describe('ChatHistory', () => {
 
   // Test Case 1: Sanitizes basic malicious HTML.
   it('should sanitize basic malicious HTML in markdown content', () => {
-    const maliciousMessage: ChatMessage = { role: 'assistant', content: '<script>alert("XSS")</script>Hello', displayInChat: true };
-    const renderedHtml: SafeHtml = component.parseMarkdown(maliciousMessage);
-    const div = document.createElement('div');
-    div.innerHTML = renderedHtml.toString(); // Use toString to get the actual HTML string
-    expect(div.textContent).not.toContain('alert("XSS")'); // Script tag should be removed
-    expect(div.textContent).toContain('Hello');
+    const maliciousMessageContent = '<script>alert("XSS")</script>Hello';
+    const message: ChatMessage = { role: 'assistant', content: maliciousMessageContent, displayInChat: true };
+    const safeHtml = component.parseMarkdown(message);
+
+    const hostFixture = TestBed.createComponent(TestHostComponent);
+    hostFixture.componentInstance.htmlContent = safeHtml;
+    hostFixture.detectChanges();
+    const renderedDiv = hostFixture.nativeElement.querySelector('div');
+
+    expect(renderedDiv.textContent).not.toContain('alert("XSS")');
+    expect(renderedDiv.textContent).toContain('Hello');
+    expect(renderedDiv.querySelector('script')).toBeNull(); // Ensure script tag is removed
   });
 
   // Test Case 2: Sanitizes attributes with malicious content.
   it('should sanitize malicious attributes in markdown content', () => {
-    const maliciousMessage: ChatMessage = { role: 'assistant', content: '<img src="x" onerror="alert(1)">', displayInChat: true };
-    const renderedHtml: SafeHtml = component.parseMarkdown(maliciousMessage);
-    const div = document.createElement('div');
-    div.innerHTML = renderedHtml.toString();
-    expect(div.querySelector('img')).toBeDefined();
-    expect(div.querySelector('img')?.hasAttribute('onerror')).toBeFalsy(); // onerror attribute should be removed
+    const maliciousMessageContent = '<img src="x" onerror="alert(1)">';
+    const message: ChatMessage = { role: 'assistant', content: maliciousMessageContent, displayInChat: true };
+    const safeHtml = component.parseMarkdown(message);
+
+    const hostFixture = TestBed.createComponent(TestHostComponent);
+    hostFixture.componentInstance.htmlContent = safeHtml;
+    hostFixture.detectChanges();
+    const renderedImg = hostFixture.nativeElement.querySelector('img');
+
+    expect(renderedImg).toBeDefined();
+    expect(renderedImg?.hasAttribute('onerror')).toBeFalsy();
+    expect(renderedImg?.getAttribute('src')).not.toContain('alert'); // Ensure onerror content is not in src
   });
 
   // Test Case 3: Allows safe HTML tags and attributes.
   it('should allow safe HTML tags and attributes in markdown content', () => {
-    const safeMessage: ChatMessage = { role: 'assistant', content: '<b>Hello</b> <a href="http://safe.com">Safe Link</a>', displayInChat: true };
-    const renderedHtml: SafeHtml = component.parseMarkdown(safeMessage);
-    const div = document.createElement('div');
-    div.innerHTML = renderedHtml.toString();
-    expect(div.querySelector('b')).toBeDefined();
-    expect(div.querySelector('b')?.textContent).toContain('Hello');
-    expect(div.querySelector('a')).toBeDefined();
-    expect(div.querySelector('a')?.getAttribute('href')).toContain('http://safe.com');
+    const safeMessageContent = '<b>Hello</b> <a href="http://safe.com">Safe Link</a>';
+    const message: ChatMessage = { role: 'assistant', content: safeMessageContent, displayInChat: true };
+    const safeHtml = component.parseMarkdown(message);
+
+    const hostFixture = TestBed.createComponent(TestHostComponent);
+    hostFixture.componentInstance.htmlContent = safeHtml;
+    hostFixture.detectChanges();
+    const renderedDiv = hostFixture.nativeElement.querySelector('div');
+
+    expect(renderedDiv.querySelector('b')).toBeDefined();
+    expect(renderedDiv.querySelector('b')?.textContent).toContain('Hello');
+    expect(renderedDiv.querySelector('a')).toBeDefined();
+    expect(renderedDiv.querySelector('a')?.getAttribute('href')).toContain('http://safe.com');
   });
 
   // Test Case 4: Correctly renders final HTML output (isFinalHtml = true).
   it('should render final HTML content directly without markdown processing', () => {
-    const finalHtmlMessage: ChatMessage = { role: 'assistant', content: '<div class="prose"><h1>Final Output</h1><p>This is <strong>HTML</strong>.</p></div>', displayInChat: true, isFinalHtml: true };
-    const renderedHtml: SafeHtml = component.parseMarkdown(finalHtmlMessage);
-    const div = document.createElement('div');
-    div.innerHTML = renderedHtml.toString();
+    const finalHtmlContent = '<div class="prose"><h1>Final Output</h1><p>This is <strong>HTML</strong>.</p></div>';
+    const message: ChatMessage = { role: 'assistant', content: finalHtmlContent, displayInChat: true, isFinalHtml: true };
+    const safeHtml = component.parseMarkdown(message);
 
-    // Check if the HTML structure is preserved and not re-parsed as markdown
-    expect(div.querySelector('h1')?.textContent).toContain('Final Output');
-    expect(div.querySelector('strong')?.textContent).toContain('HTML');
-    expect(div.textContent).not.toContain('**HTML**'); // Ensure it's not markdown
+    const hostFixture = TestBed.createComponent(TestHostComponent);
+    hostFixture.componentInstance.htmlContent = safeHtml;
+    hostFixture.detectChanges();
+    const renderedDiv = hostFixture.nativeElement.querySelector('div');
+
+    expect(renderedDiv.querySelector('h1')?.textContent).toContain('Final Output');
+    expect(renderedDiv.querySelector('strong')?.textContent).toContain('HTML');
+    expect(renderedDiv.innerHTML).not.toContain('**HTML**'); // Ensure it's not markdown
   });
 
   // Test Case 5: Correctly renders markdown (isFinalHtml = false).
   it('should render markdown content with markdown processing', () => {
-    const markdownMessage: ChatMessage = { role: 'assistant', content: '## Markdown Heading\n**Bold** _Italic_', displayInChat: true, isFinalHtml: false };
-    const renderedHtml: SafeHtml = component.parseMarkdown(markdownMessage);
-    const div = document.createElement('div');
-    div.innerHTML = renderedHtml.toString();
+    const markdownContent = '## Markdown Heading\n**Bold** _Italic_';
+    const message: ChatMessage = { role: 'assistant', content: markdownContent, displayInChat: true, isFinalHtml: false };
+    const safeHtml = component.parseMarkdown(message);
 
-    expect(div.querySelector('h2')).toBeDefined();
-    expect(div.querySelector('h2')?.textContent).toContain('Markdown Heading');
-    expect(div.querySelector('strong')).toBeDefined();
-    expect(div.querySelector('em')).toBeDefined();
+    const hostFixture = TestBed.createComponent(TestHostComponent);
+    hostFixture.componentInstance.htmlContent = safeHtml;
+    hostFixture.detectChanges();
+    const renderedDiv = hostFixture.nativeElement.querySelector('div');
+
+    expect(renderedDiv.querySelector('h2')).toBeDefined();
+    expect(renderedDiv.querySelector('h2')?.textContent).toContain('Markdown Heading');
+    expect(renderedDiv.querySelector('strong')).toBeDefined();
+    expect(renderedDiv.querySelector('em')).toBeDefined();
   });
+
 
   // Test Case 6: filteredMessages should be empty when inResearchMode is true
   it('should return empty filteredMessages when inResearchMode is true', () => {
@@ -115,24 +152,42 @@ describe('ChatHistory', () => {
     expect(component.filteredMessages[0].content).toBe('test1');
   });
 
-  // Test Cases for TODO #16: Final HTML Rendering
-  it('should display final HTML output as the sole message when available and not in research mode', async () => { // Marked as async
-    const finalHtml = `<div class="prose"><h1>Research Brief</h1><p>This is a detailed brief.</p></div>`;
-    component.inResearchMode = false;
-    component.finalHtmlOutput = finalHtml;
-    component.messages = []; // Ensure no regular messages are present for finalHtmlOutput to display
-    fixture.detectChanges(); // Detect changes after setting inputs
-    await fixture.whenStable(); // Wait for component to stabilize
+  // Tests for rendering with ChatMessage in messages array
+  it('should display a regular chat message', async () => {
+    component.messages = [{ role: 'user', content: 'Hello from user', displayInChat: true }];
+    fixture.detectChanges();
+    await fixture.whenStable();
 
-    const compiled = fixture.nativeElement;
-    let renderedContent = compiled.querySelector('div.max-w-full p');
-    expect(renderedContent).not.toBeNull();
-    expect(renderedContent.innerHTML).toContain('<h1>Research Brief</h1>');
-    expect(renderedContent.innerHTML).toContain('<p>This is a detailed brief.</p>');
-    expect(compiled.querySelectorAll('.flex').length).toBe(1); // Only one flex container for the final HTML
+    const userMessageElement = fixture.nativeElement.querySelector('.justify-end .p-3 p');
+    expect(userMessageElement).toBeTruthy();
+    expect(userMessageElement.textContent).toContain('Hello from user');
   });
 
-  it('should apply Philippine Case Card styling via HTML structure (unit test verifies structure, not live CSS)', async () => { // Marked as async
+  it('should display an assistant chat message with markdown parsing', async () => {
+    component.messages = [{ role: 'assistant', content: '## Hello from **LawGPT**', displayInChat: true }];
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const assistantMessageElement = fixture.nativeElement.querySelector('.justify-start .p-3');
+    expect(assistantMessageElement).toBeTruthy();
+    expect(assistantMessageElement.querySelector('h2')?.textContent).toContain('Hello from LawGPT');
+    expect(assistantMessageElement.querySelector('strong')?.textContent).toContain('LawGPT');
+  });
+
+  it('should display final HTML output message when isFinalHtml is true', async () => {
+    const finalHtml = `<div class="prose"><h1>Research Brief</h1><p>This is a detailed brief.</p></div>`;
+    component.messages = [{ role: 'assistant', content: finalHtml, displayInChat: true, isFinalHtml: true }];
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const finalHtmlElement = fixture.nativeElement.querySelector('.justify-start .p-3');
+    expect(finalHtmlElement).toBeTruthy();
+    expect(finalHtmlElement.querySelector('h1')?.textContent).toContain('Research Brief');
+    expect(finalHtmlElement.querySelector('p')?.textContent).toContain('This is a detailed brief.');
+    expect(finalHtmlElement.innerHTML).toContain('<h1>Research Brief</h1>'); // Check raw HTML too
+  });
+
+  it('should apply Philippine Case Card styling via HTML structure when isFinalHtml is true', async () => {
     const caseCardHtml = `
       <div class="my-4 p-4 bg-slate-50 border-l-4 border-blue-700 rounded-r-md shadow-sm">
         <p class="font-bold text-slate-900">G.R. No. 123456</p>
@@ -142,14 +197,11 @@ describe('ChatHistory', () => {
         <p class="text-slate-800 text-sm">Short Syllabus/Holding...</p>
       </div>
     `;
-    component.inResearchMode = false;
-    component.finalHtmlOutput = caseCardHtml;
-    component.messages = [];
-    fixture.detectChanges(); // Detect changes after setting inputs
-    await fixture.whenStable(); // Wait for component to stabilize
+    component.messages = [{ role: 'assistant', content: caseCardHtml, displayInChat: true, isFinalHtml: true }];
+    fixture.detectChanges();
+    await fixture.whenStable();
 
-    const compiled = fixture.nativeElement;
-    const cardDiv = compiled.querySelector('.bg-slate-50');
+    const cardDiv = fixture.nativeElement.querySelector('.bg-slate-50');
     expect(cardDiv).not.toBeNull();
     expect(cardDiv.classList).toContain('my-4');
     expect(cardDiv.classList).toContain('p-4');
@@ -160,24 +212,14 @@ describe('ChatHistory', () => {
     expect(cardDiv.querySelector('p.font-bold')?.textContent).toContain('G.R. No. 123456');
   });
 
-  // Font-family application is typically verified via integration tests or visual regression tests,
-  // as unit tests cannot easily assert live CSS properties applied by a browser's rendering engine.
-  // We'll verify that the HTML structure itself does not introduce conflicting font styles,
-  // and rely on the Tailwind config verification for the default font stack.
-  it('should not introduce conflicting font styles in the rendered HTML structure', async () => { // Marked as async
+  it('should not introduce conflicting font styles in the rendered HTML structure when isFinalHtml is true', async () => {
     const htmlWithText = `<p>Some text</p>`;
-    component.inResearchMode = false;
-    component.finalHtmlOutput = htmlWithText;
-    component.messages = [];
-    fixture.detectChanges(); // Detect changes after setting inputs
-    await fixture.whenStable(); // Wait for component to stabilize
+    component.messages = [{ role: 'assistant', content: htmlWithText, displayInChat: true, isFinalHtml: true }];
+    fixture.detectChanges();
+    await fixture.whenStable();
 
-    const compiled = fixture.nativeElement;
-    const pElement = compiled.querySelector('p');
+    const pElement = fixture.nativeElement.querySelector('p');
     expect(pElement).not.toBeNull();
-    // We cannot easily assert actual computed font-family here in a unit test
-    // We'd rely on the Tailwind CSS setup (verified in TODO 14) to apply the default font.
-    // This test ensures no *inline style* or *class* on the HTML directly overrides the global setup.
     expect(pElement.style.fontFamily).toBe('');
   });
 });

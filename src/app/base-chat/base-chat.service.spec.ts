@@ -1,10 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { MiniChatService } from './mini-chat.service';
+import { BaseChatService } from './base-chat.service';
 import { AiApiService } from '../ai-api'; // Import AiApiService
 import { of, throwError } from 'rxjs';
 
-describe('MiniChatService', () => {
-  let service: MiniChatService;
+describe('BaseChatService', () => {
+  let service: BaseChatService;
   let mockAiApiService: { sendSimpleChat: jest.Mock };
 
   beforeEach(() => {
@@ -15,18 +15,18 @@ describe('MiniChatService', () => {
 
     TestBed.configureTestingModule({
       providers: [
-        MiniChatService,
+        BaseChatService,
         { provide: AiApiService, useValue: mockAiApiService }
       ]
     });
-    service = TestBed.inject(MiniChatService);
+    service = TestBed.inject(BaseChatService);
   });
 
   it('should be created', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should call aiApiService.sendSimpleChat with the user message and fastApiUrl', () => {
+  it('should call aiApiService.sendSimpleChat with the user message and baseApiUrl', () => {
     const userMessage = 'What is certiorari?';
     const mockApiResponse = 'Certiorari is a legal process...';
     mockAiApiService.sendSimpleChat.mockReturnValue(of(mockApiResponse));
@@ -35,7 +35,7 @@ describe('MiniChatService', () => {
       expect(response).toBe(mockApiResponse);
     });
 
-    expect(mockAiApiService.sendSimpleChat).toHaveBeenCalledWith(userMessage, service['fastApiUrl']);
+    expect(mockAiApiService.sendSimpleChat).toHaveBeenCalledWith(userMessage, service['baseApiUrl']);
   });
 
   it('should extract ai_message from JSON response if present', () => {
@@ -47,7 +47,7 @@ describe('MiniChatService', () => {
       expect(response).toBe('Hi there!'); // Expect only the ai_message content
     });
 
-    expect(mockAiApiService.sendSimpleChat).toHaveBeenCalledWith(userMessage, service['fastApiUrl']);
+    expect(mockAiApiService.sendSimpleChat).toHaveBeenCalledWith(userMessage, service['baseApiUrl']);
   });
 
   it('should return raw response if it is not JSON or does not contain ai_message', () => {
@@ -59,7 +59,7 @@ describe('MiniChatService', () => {
       expect(response).toBe(rawTextResponse);
     });
 
-    expect(mockAiApiService.sendSimpleChat).toHaveBeenCalledWith(userMessage, service['fastApiUrl']);
+    expect(mockAiApiService.sendSimpleChat).toHaveBeenCalledWith(userMessage, service['baseApiUrl']);
   });
 
   it('should re-throw error from aiApiService.sendSimpleChat', async () => {
@@ -67,6 +67,6 @@ describe('MiniChatService', () => {
     const mockError = new Error('API communication failed');
     mockAiApiService.sendSimpleChat.mockReturnValue(throwError(() => mockError));
 
-    await expect(service.sendMessage(userMessage).toPromise()).rejects.toThrow('Mini AI communication failed');
+    await expect(service.sendMessage(userMessage).toPromise()).rejects.toThrow('Base AI communication failed');
   });
 });

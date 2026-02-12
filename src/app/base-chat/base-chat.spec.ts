@@ -1,33 +1,33 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MiniChatComponent } from './mini-chat';
+import { BaseChatComponent } from './base-chat';
 import { signal } from '@angular/core';
-import { MiniChatService } from './mini-chat.service';
+import { BaseChatService } from './base-chat.service';
 import { of, timer } from 'rxjs'; // Import timer
 import { map } from 'rxjs/operators'; // Import map
 import { By } from '@angular/platform-browser'; // Import By
 import { RouterTestingModule } from '@angular/router/testing'; // Import RouterTestingModule
 import { Header } from '../shared/header'; // Import Header component
 
-describe('MiniChatComponent', () => {
-  let component: MiniChatComponent;
-  let fixture: ComponentFixture<MiniChatComponent>;
-  let mockMiniChatService: { sendMessage: jest.Mock };
+describe('BaseChatComponent', () => {
+  let component: BaseChatComponent;
+  let fixture: ComponentFixture<BaseChatComponent>;
+  let mockBaseChatService: { sendMessage: jest.Mock };
 
   beforeEach(async () => {
     TestBed.resetTestingModule(); // Explicitly reset the testing module
-    mockMiniChatService = {
+    mockBaseChatService = {
       // Mock sendMessage to return an observable that emits asynchronously
       sendMessage: vi.fn().mockReturnValue(timer(10).pipe(map(() => 'Mock AI Response'))) // Emit after a small delay
     };
 
     await TestBed.configureTestingModule({
-      imports: [MiniChatComponent, RouterTestingModule, Header], // Add RouterTestingModule and Header
+      imports: [BaseChatComponent, RouterTestingModule, Header], // Add RouterTestingModule and Header
       providers: [
-        { provide: MiniChatService, useValue: mockMiniChatService }
+        { provide: BaseChatService, useValue: mockBaseChatService }
       ]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(MiniChatComponent);
+    fixture = TestBed.createComponent(BaseChatComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
@@ -42,33 +42,33 @@ describe('MiniChatComponent', () => {
 
     const h1Element = fixture.nativeElement.querySelector('app-header h1');
     expect(h1Element).toBeTruthy();
-    expect(h1Element.textContent).toContain('LawGPT Fast');
+    expect(h1Element.textContent).toContain('LawGPT Base');
 
     const headerContainer = fixture.nativeElement.querySelector('app-header header');
     expect(headerContainer).toBeTruthy();
-    expect(headerContainer.classList).toContain('bg-blue-800');
+    expect(headerContainer.classList).toContain('bg-red-600');
   });
 
   it('should display user message and AI response after handleMessageSent', async () => {
-    const testMessage = 'Hello mini chat!';
+    const testMessage = 'Hello base chat!';
     component.handleMessageSent(testMessage);
     fixture.detectChanges();
 
     // Check if the loading indicator is shown immediately after sending a message
+    // console.log('Current loading state:', component.loading()); // Diagnostic log
     expect(component.loading()).toBe(true);
-    // After initial assistant message (1) + user message (1) = 2 messages
-    expect(component.messages().length).toBe(2);
+    expect(component.messages().length).toBe(2); // Initial assistant message + user message
 
     // Expect sendMessage to have been called on the mock service
-    expect(mockMiniChatService.sendMessage).toHaveBeenCalledWith(testMessage);
+    expect(mockBaseChatService.sendMessage).toHaveBeenCalledWith(testMessage);
 
     // Wait for the asynchronous mock service response to complete
     await new Promise(resolve => setTimeout(resolve, 50)); // Wait longer than the timer(10) delay
     fixture.detectChanges();
 
-    // After the mock service returns, initial assistant (1) + user message (1) + AI response (1) = 3 messages
+    // After the mock service returns, both user message and AI response should be present
     expect(component.messages().length).toBe(3);
-    expect(component.messages()[0].content).toBe('Hello! I am LawGPT Fast. How can I assist you today?'); // Initial assistant message
+    expect(component.messages()[0].content).toBe('Hello! I am LawGPT Base. How can I assist you today?'); // Initial assistant message
     expect(component.messages()[1].content).toBe(testMessage); // User message
     expect(component.messages()[1].role).toBe('user');
     expect(component.messages()[2].content).toBe('Mock AI Response'); // AI response

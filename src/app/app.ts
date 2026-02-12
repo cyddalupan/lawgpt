@@ -11,5 +11,5 @@ import { RouterOutlet } from '@angular/router';
   styleUrl: './app.css',
 })
 export class App {
-  protected readonly title = signal('temp-angular-app');
+  protected readonly title = signal('LawGPT');
 }

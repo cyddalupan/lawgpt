@@ -32,11 +32,11 @@ export class ChatHistory implements AfterViewChecked { // Implement AfterViewChe
   parseMarkdown(message: ChatMessage): SafeHtml {
     const content = message.content;
     if (message.isFinalHtml) {
-      // If it's already final HTML, bypass marked.parse and directly sanitize
+      // If it's already final HTML, bypass marked.parse and directly bypass security (assuming it's trusted final output)
       return this.sanitizer.bypassSecurityTrustHtml(content || '');
     } else {
-      // For other messages, parse markdown as usual
-      return this.sanitizer.bypassSecurityTrustHtml(marked.parse(content) || '');
+      // For other messages, parse markdown and then sanitize the resulting HTML
+      return this.sanitizer.sanitize(SecurityContext.HTML, marked.parse(content) || '') || '';
     }
   }
 

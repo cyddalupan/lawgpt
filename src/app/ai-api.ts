@@ -18,15 +18,16 @@ export class AiApiService {
    * @param messages An array of chat messages in OpenAI format.
    * @returns An Observable with the AI's response.
    */
-  getAiResponse(messages: any[]): Observable<any> {
+  getAiResponse(messages: any[], customApiUrl?: string): Observable<any> {
     const headers = new HttpHeaders({
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${this.authToken}`
     });
 
     const body = { messages: messages };
+    const targetUrl = customApiUrl || this.apiUrl;
 
-    return this.http.post<any>(this.apiUrl, body, { headers }).pipe(
+    return this.http.post(targetUrl, body, { headers, responseType: 'text' }).pipe(
       catchError(this.handleError)
     );
   }
